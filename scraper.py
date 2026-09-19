@@ -1,6 +1,7 @@
 import pandas as pd
+import time
 from nba_api.stats.static import teams
-from nba_api.stats.endpoints import teamgamelog, leaguedashteamstats, teamgamelogs
+from nba_api.stats.endpoints import teamgamelog, teamgamelogs
 
 
 class Scraper:
@@ -23,17 +24,23 @@ class Scraper:
     '''
     def lastNGames(self, N):
         # Find team Id
-        team = next(team for team in teams.get_teams() if team['full_name'] == self.team)
-        team_id = team['id']
+        team = next(t for t in teams.get_teams() if t['full_name'] == self.team)
+        team_id = team["id"]
 
         # Scrape game log for team, then convert to dataframe
-        games = teamgamelog.TeamGameLog(
-            team_id=team_id,
-            season="2025-26",
-            season_type_all_star="Regular Season",
+        seasons = ["2023-24", "2024-25", "2025-26"]
+        games = []
+        for season in seasons:
+            temp = teamgamelog.TeamGameLog(
+                team_id=team_id,
+                season=season,
+                season_type_all_star="Regular Season",
             )
-        games_df = games.get_data_frames()[0]
-
+            temp = temp.get_data_frames()[0]
+            games.append(temp)
+            time.sleep(1)
+        games_df = pd.concat(games, ignore_index=True)
+        
         # Convert to datetime, sort the games chronologically and limit to size N
         games_df["GAME_DATE"] = pd.to_datetime(
             games_df["GAME_DATE"], 
@@ -43,14 +50,20 @@ class Scraper:
         games_df = games_df.head(N)
 
         # Add advanced stats like Net Rating
-        advanced_stats = teamgamelogs.TeamGameLogs(
-            team_id_nullable=team_id,
-            season_nullable="2025-26",
-            season_type_nullable="Regular Season",
-            measure_type_player_game_logs_nullable="Advanced"
-            )
+        advanced_games = []
+        for season in seasons:
+            temp = teamgamelogs.TeamGameLogs(
+                team_id_nullable=team_id,
+                season_nullable=season,
+                season_type_nullable="Regular Season",
+                measure_type_player_game_logs_nullable="Advanced",
+                )
+            temp = temp.get_data_frames()[0]
+            advanced_games.append(temp)
+            time.sleep(1)
+        advanced_df = pd.concat(advanced_games, ignore_index=True)
+        
         # Sort the advanced stats, same as above
-        advanced_df = advanced_stats.get_data_frames()[0]
         advanced_df["GAME_DATE"] = pd.to_datetime(
             advanced_df["GAME_DATE"], 
             format="%Y-%m-%dT%H:%M:%S"
@@ -89,18 +102,24 @@ class Scraper:
     '''
     def gamesDateRange(self, start, end):
         # Find team Id
-        team = next(team for team in teams.get_teams() if team['full_name'] == self.team)
-        team_id = team['id']
+        team = next(t for t in teams.get_teams() if t['full_name'] == self.team)
+        team_id = team["id"]
 
         # Scrape game log for team, then convert to dataframe, add start and end dates
-        games = teamgamelog.TeamGameLog(
-            team_id=team_id,
-            season="2025-26",
-            season_type_all_star="Regular Season",
-            date_from_nullable=start,
-            date_to_nullable=end
+        seasons = ["2023-24", "2024-25", "2025-26"]
+        games = []
+        for season in seasons:
+            temp = teamgamelog.TeamGameLog(
+                team_id=team_id,
+                season=season,
+                season_type_all_star="Regular Season",
+                date_from_nullable=start,
+                date_to_nullable=end
             )
-        games_df = games.get_data_frames()[0]
+            temp = temp.get_data_frames()[0]
+            games.append(temp)
+            time.sleep(1)
+        games_df = pd.concat(games, ignore_index=True)
 
         # Convert to datetime, sort the games chronologically
         games_df["GAME_DATE"] = pd.to_datetime(
@@ -110,16 +129,22 @@ class Scraper:
         games_df = games_df.sort_values(by="GAME_DATE", ascending=False)
 
         # Add advanced stats like Net Rating
-        advanced_stats = teamgamelogs.TeamGameLogs(
-            team_id_nullable=team_id,
-            season_nullable="2025-26",
-            season_type_nullable="Regular Season",
-            measure_type_player_game_logs_nullable="Advanced",
-            date_from_nullable=start,
-            date_to_nullable=end
+        advanced_games = []
+        for season in seasons:
+            temp = teamgamelogs.TeamGameLogs(
+                team_id_nullable=team_id,
+                season_nullable=season,
+                season_type_nullable="Regular Season",
+                measure_type_player_game_logs_nullable="Advanced",
+                date_from_nullable=start,
+                date_to_nullable=end
             )
+            temp = temp.get_data_frames()[0]
+            advanced_games.append(temp)
+            time.sleep(1)
+        advanced_df = pd.concat(advanced_games, ignore_index=True)
+
         # Sort the advanced stats, same as above
-        advanced_df = advanced_stats.get_data_frames()[0]
         advanced_df["GAME_DATE"] = pd.to_datetime(
             advanced_df["GAME_DATE"], 
             format="%Y-%m-%dT%H:%M:%S"
@@ -149,30 +174,26 @@ class Scraper:
     "DREB_PCT", "REB_PCT", and "PIE" are calculated.
 
     @param games_df    DataFrame of stats from games to calculate averages
-    @return     Dictionary with metrics as keys and averages as values
-    @author     Arnav Prasad
-    @version    Sep 17, 2026
+    @return            DataFrame of metrics and averages values
+    @author            Arnav Prasad
+    @version           Sep 17, 2026
     '''
-    def averageLastNStats(self, games_df):
-        # Intialize the averages dictionary with null values with each metric
-        averages = {
-                    "OREB": None, "DREB": None, "REB": None, "AST": None, 
-                    "STL": None, "BLK": None, "TOV": None, "PF": None, 
-                    "PTS": None, "NET_RATING": None, "PACE": None, 
-                    "TM_TOV_PCT": None, "EFG_PCT": None, "TS_PCT": None, 
-                    "AST_PCT": None, "AST_TO": None, "OREB_PCT": None, 
-                    "DREB_PCT": None, "REB_PCT": None, "PIE": None
-                    }
+    def averageStats(self, games_df):
+        # Intialize the metrics list
+        metrics_of_interest = [
+                    "OREB", "DREB", "REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", 
+                    "NET_RATING", "PACE", "TM_TOV_PCT", "EFG_PCT", "TS_PCT", 
+                    "AST_PCT", "AST_TO", "OREB_PCT", "DREB_PCT", "REB_PCT", "PIE"
+                ]
 
-        # Iterate over averages and add the average metrics across the last N games
-        # to the values of averages 
-        for metric in averages.keys():
-            averages[metric] = games_df[metric].mean(axis='rows')
+        # Take the average of the metrics in games_df that is in common with metrics_of_interest
+        averages_df = games_df[metrics_of_interest].mean().to_frame().T
 
-        # averages now holds the required mean metrics
-        return averages
+        # average_df now holds the mean metrics in DataFrame form
+        return averages_df
 
 # Tests--
 team = Scraper("Los Angeles Lakers")
-print(team.lastNGames(5))
-print(team.gamesDateRange(end="2026-04-12", start="2026-04-05"))
+# print(team.lastNGames(5))
+print(team.gamesDateRange(end="2026-04-12", start="2026-03-05"))
+# print(team.averageStats(team.gamesDateRange(end="2026-04-12", start="2026-03-05")))
