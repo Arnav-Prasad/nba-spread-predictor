@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+from datetime import datetime
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import teamgamelog, teamgamelogs
 
@@ -105,21 +106,26 @@ class Scraper:
         team = next(t for t in teams.get_teams() if t['full_name'] == self.team)
         team_id = team["id"]
 
+        # Get which season start is in
+        start_date = pd.to_datetime(start, format="%Y-%m-%d")
+        if (start_date > pd.to_datetime("2025-09-01", format="%Y-%m-%d")):
+            season = "2025-26"
+        elif (start_date > pd.to_datetime("2024-09-01", format="%Y-%m-%d")):
+            season = "2024-25"
+        elif (start_date > pd.to_datetime("2023-09-01", format="%Y-%m-%d")):
+            season = "2023-24"
+        else:
+            raise ValueError(f"No season mapping for {start_date}")
+
         # Scrape game log for team, then convert to dataframe, add start and end dates
-        seasons = ["2023-24", "2024-25", "2025-26"]
-        games = []
-        for season in seasons:
-            temp = teamgamelog.TeamGameLog(
-                team_id=team_id,
-                season=season,
-                season_type_all_star="Regular Season",
-                date_from_nullable=start,
-                date_to_nullable=end
-            )
-            temp = temp.get_data_frames()[0]
-            games.append(temp)
-            time.sleep(1)
-        games_df = pd.concat(games, ignore_index=True)
+        temp = teamgamelog.TeamGameLog(
+            team_id=team_id,
+            season=season,
+            season_type_all_star="Regular Season",
+            date_from_nullable=start,
+            date_to_nullable=end
+        )
+        games_df = temp.get_data_frames()[0]
 
         # Convert to datetime, sort the games chronologically
         games_df["GAME_DATE"] = pd.to_datetime(
@@ -129,20 +135,15 @@ class Scraper:
         games_df = games_df.sort_values(by="GAME_DATE", ascending=False)
 
         # Add advanced stats like Net Rating
-        advanced_games = []
-        for season in seasons:
-            temp = teamgamelogs.TeamGameLogs(
-                team_id_nullable=team_id,
-                season_nullable=season,
-                season_type_nullable="Regular Season",
-                measure_type_player_game_logs_nullable="Advanced",
-                date_from_nullable=start,
-                date_to_nullable=end
-            )
-            temp = temp.get_data_frames()[0]
-            advanced_games.append(temp)
-            time.sleep(1)
-        advanced_df = pd.concat(advanced_games, ignore_index=True)
+        temp = teamgamelogs.TeamGameLogs(
+            team_id_nullable=team_id,
+            season_nullable=season,
+            season_type_nullable="Regular Season",
+            measure_type_player_game_logs_nullable="Advanced",
+            date_from_nullable=start,
+            date_to_nullable=end
+        )
+        advanced_df = temp.get_data_frames()[0]
 
         # Sort the advanced stats, same as above
         advanced_df["GAME_DATE"] = pd.to_datetime(
@@ -193,7 +194,7 @@ class Scraper:
         return averages_df
 
 # Tests--
-team = Scraper("Los Angeles Lakers")
+# team = Scraper("Los Angeles Lakers")
 # print(team.lastNGames(5))
-print(team.gamesDateRange(end="2026-04-12", start="2026-03-05"))
+# print(team.gamesDateRange(end="2026-04-12", start="2026-03-05"))
 # print(team.averageStats(team.gamesDateRange(end="2026-04-12", start="2026-03-05")))
