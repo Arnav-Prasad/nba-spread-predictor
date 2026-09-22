@@ -136,5 +136,5 @@ def createTrainingFile(N):
     training_df = pd.concat(training_sets, ignore_index=True)
     training_df.to_csv("training_data.csv", index=False)
 
-
-createTrainingFile(5)
+# Run once to create the csv file
+createTrainingFile(1000)
