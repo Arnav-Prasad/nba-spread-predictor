@@ -1,7 +1,6 @@
 import xgboost as xgb
 import pandas as pd
 import numpy as np
-from trainer import createTrainingFile
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -35,7 +34,7 @@ def createModel():
         "GAME_ID": game_ids_test.values,
         "prediction": predictions
         })
-    predictions_df.to_csv("predictions.csv")
+    predictions_df.to_csv("predictions.csv", header=True, mode="w")
 
     print(f"MAE is {mae} and RMSE is {rmse}")
 

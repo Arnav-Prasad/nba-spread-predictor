@@ -1,8 +1,30 @@
 import pandas as pd
 import time
-from datetime import datetime
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import teamgamelog, teamgamelogs
+
+
+'''
+Call fetch_func, retrying up to max_retries times with a delay in between
+if it raises an exception (e.g. a network timeout). Used to wrap nba_api
+calls so a transient server hiccup doesn't crash the whole script.
+
+@param fetch_func     A zero-argument function (e.g. a lambda) that makes
+                       the actual API call and returns its result
+@param max_retries     How many total attempts to make before giving up
+@param delay           Seconds to wait between retries
+@return                Whatever fetch_func() returns, on the first success
+@author                Arnav Prasad
+@version               Sep 22, 2026
+'''
+def fetchWithRetry(fetch_func, max_retries=3, delay=5):
+    for attempt in range(max_retries):
+        try:
+            return fetch_func()
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            time.sleep(delay)
+    raise Exception("Max retries exceeded")
 
 
 class Scraper:
@@ -32,19 +54,19 @@ class Scraper:
         seasons = ["2023-24", "2024-25", "2025-26"]
         games = []
         for season in seasons:
-            temp = teamgamelog.TeamGameLog(
+            temp = fetchWithRetry(lambda season=season: teamgamelog.TeamGameLog(
                 team_id=team_id,
                 season=season,
                 season_type_all_star="Regular Season",
-            )
+            ))
             temp = temp.get_data_frames()[0]
             games.append(temp)
             time.sleep(1)
         games_df = pd.concat(games, ignore_index=True)
-        
+
         # Convert to datetime, sort the games chronologically and limit to size N
         games_df["GAME_DATE"] = pd.to_datetime(
-            games_df["GAME_DATE"], 
+            games_df["GAME_DATE"],
             format="%b %d, %Y"
             )
         games_df = games_df.sort_values(by="GAME_DATE", ascending=False)
@@ -53,20 +75,20 @@ class Scraper:
         # Add advanced stats like Net Rating
         advanced_games = []
         for season in seasons:
-            temp = teamgamelogs.TeamGameLogs(
+            temp = fetchWithRetry(lambda season=season: teamgamelogs.TeamGameLogs(
                 team_id_nullable=team_id,
                 season_nullable=season,
                 season_type_nullable="Regular Season",
                 measure_type_player_game_logs_nullable="Advanced",
-                )
+                ))
             temp = temp.get_data_frames()[0]
             advanced_games.append(temp)
             time.sleep(1)
         advanced_df = pd.concat(advanced_games, ignore_index=True)
-        
+
         # Sort the advanced stats, same as above
         advanced_df["GAME_DATE"] = pd.to_datetime(
-            advanced_df["GAME_DATE"], 
+            advanced_df["GAME_DATE"],
             format="%Y-%m-%dT%H:%M:%S"
             )
         advanced_df = advanced_df.sort_values(by="GAME_DATE", ascending=False)
@@ -74,8 +96,8 @@ class Scraper:
 
         # Merge the two DataFrames into one
         metrics_of_interest = [
-                            "NET_RATING", "PACE", "TM_TOV_PCT", "EFG_PCT", 
-                            "TS_PCT", "AST_PCT", "AST_TO", "OREB_PCT", 
+                            "NET_RATING", "PACE", "TM_TOV_PCT", "EFG_PCT",
+                            "TS_PCT", "AST_PCT", "AST_TO", "OREB_PCT",
                             "DREB_PCT", "REB_PCT", "PIE"
                             ]
         games_df = games_df.merge(
@@ -118,44 +140,46 @@ class Scraper:
             raise ValueError(f"No season mapping for {start_date}")
 
         # Scrape game log for team, then convert to dataframe, add start and end dates
-        temp = teamgamelog.TeamGameLog(
+        temp = fetchWithRetry(lambda: teamgamelog.TeamGameLog(
             team_id=team_id,
             season=season,
             season_type_all_star="Regular Season",
             date_from_nullable=start,
             date_to_nullable=end
-        )
+        ))
         games_df = temp.get_data_frames()[0]
+        time.sleep(1)
 
         # Convert to datetime, sort the games chronologically
         games_df["GAME_DATE"] = pd.to_datetime(
-            games_df["GAME_DATE"], 
+            games_df["GAME_DATE"],
             format="%b %d, %Y"
             )
         games_df = games_df.sort_values(by="GAME_DATE", ascending=False)
 
         # Add advanced stats like Net Rating
-        temp = teamgamelogs.TeamGameLogs(
+        temp = fetchWithRetry(lambda: teamgamelogs.TeamGameLogs(
             team_id_nullable=team_id,
             season_nullable=season,
             season_type_nullable="Regular Season",
             measure_type_player_game_logs_nullable="Advanced",
             date_from_nullable=start,
             date_to_nullable=end
-        )
+        ))
         advanced_df = temp.get_data_frames()[0]
+        time.sleep(1)
 
         # Sort the advanced stats, same as above
         advanced_df["GAME_DATE"] = pd.to_datetime(
-            advanced_df["GAME_DATE"], 
+            advanced_df["GAME_DATE"],
             format="%Y-%m-%dT%H:%M:%S"
             )
         advanced_df = advanced_df.sort_values(by="GAME_DATE", ascending=False)
 
         # Merge the two DataFrames into one
         metrics_of_interest = [
-                            "NET_RATING", "PACE", "TM_TOV_PCT", "EFG_PCT", 
-                            "TS_PCT", "AST_PCT", "AST_TO", "OREB_PCT", 
+                            "NET_RATING", "PACE", "TM_TOV_PCT", "EFG_PCT",
+                            "TS_PCT", "AST_PCT", "AST_TO", "OREB_PCT",
                             "DREB_PCT", "REB_PCT", "PIE"
                             ]
         games_df = games_df.merge(
