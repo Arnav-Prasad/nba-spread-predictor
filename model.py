@@ -11,8 +11,8 @@ def createModel():
     y = training_df["label"]
 
     gary = xgb.XGBRegressor(n_estimators=300,
-                             max_depth=3,
-                             learning_rate=0.05,
+                             max_depth=1,
+                             learning_rate=0.08,
                              random_state=1
                              )
 
