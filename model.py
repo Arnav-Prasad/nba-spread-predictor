@@ -1,6 +1,5 @@
 import xgboost as xgb
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -12,7 +11,7 @@ def createModel():
 
     gary = xgb.XGBRegressor(n_estimators=300,
                              max_depth=1,
-                             learning_rate=0.08,
+                             learning_rate=0.05,
                              random_state=1
                              )
 
@@ -27,20 +26,20 @@ def createModel():
     gary.fit(X=x_train, y=y_train)
 
     predictions = gary.predict(X=x_test)
-    mae = mean_absolute_error(y_test, predictions)
-    rmse = np.sqrt(mean_squared_error(y_test, predictions))
+    # mae = mean_absolute_error(y_test, predictions)
+    # rmse = np.sqrt(mean_squared_error(y_test, predictions))
 
     predictions_df = pd.DataFrame({
         "GAME_ID": game_ids_test.values,
-        "prediction": predictions
+        "prediction": predictions,
+        "actual": y_test
         })
     predictions_df.to_csv("predictions.csv", header=True, mode="w")
+    # print(f"MAE is {mae} and RMSE is {rmse}")
 
-    print(f"MAE is {mae} and RMSE is {rmse}")
-
-    naive_prediction = y_train.mean()
-    baseline_predictions = np.full_like(y_test, naive_prediction)
-    baseline_mae = mean_absolute_error(y_test, baseline_predictions)
-    print(f"Baseline MAE: {baseline_mae}")
+    # naive_prediction = y_train.mean()
+    # baseline_predictions = np.full_like(y_test, naive_prediction)
+    # baseline_mae = mean_absolute_error(y_test, baseline_predictions)
+    # print(f"Baseline MAE: {baseline_mae}")
 
 createModel()
