@@ -35,6 +35,12 @@ def createModel():
         "actual": y_test
         })
     predictions_df.to_csv("predictions.csv", header=True, mode="w")
+    features = gary.feature_names_in_
+    importances = gary.feature_importances_
+    with open("importances.csv", mode="w") as file:
+        file.write("feature,importance\n")
+        for feature, importance in zip(features, importances):
+            file.write(f"{feature},{importance}\n")
     # print(f"MAE is {mae} and RMSE is {rmse}")
 
     # naive_prediction = y_train.mean()
