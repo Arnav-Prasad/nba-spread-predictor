@@ -7,7 +7,7 @@ predictions = data["prediction"]
 actual = data["actual"]
 
 fig, ax = plt.subplots()
-ax.scatter(actual, predictions)
+ax.scatter(actual, predictions, s=12, alpha=0.35)
 
 bounds = [np.min([ax.get_xlim(), ax.get_ylim()]),
                 np.max([ax.get_xlim(), ax.get_ylim()])]

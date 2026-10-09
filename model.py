@@ -19,7 +19,7 @@ def createModel():
         X,
         y,
         game_ids,
-        test_size=0.05,
+        test_size=0.20,
         random_state=1
     )
 
