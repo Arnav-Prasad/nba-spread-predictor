@@ -33,5 +33,6 @@ ax_b.barh(y=top["feature"],
           width=top["importance"])
 # plt.show()
 plt.xlabel("Feature importance (share of total)")
+plt.ylabel("Top 15 Features ranked by importance")
 plt.title("Feature Importances")
 fig_b.savefig("bar.png", bbox_inches="tight")
