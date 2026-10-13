@@ -22,7 +22,7 @@ plt.xlabel("Actual +/-")
 plt.ylabel("Predicted +/-")
 plt.title("Actual vs Predicted +/-")
 # plt.show()
-fig_s.savefig("perdictions.png")
+fig_s.savefig("predictions.png")
 
 importances = pd.read_csv("importances.csv")
 importances = importances.sort_values(by=["importance"], ascending=False)
