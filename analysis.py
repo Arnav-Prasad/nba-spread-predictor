@@ -16,8 +16,8 @@ ax_s.set_xlim(bounds)
 ax_s.set_ylim(bounds)
 ax_s.grid(visible=True, axis='both')
 # ax.axes()
-ax_s.axhline(0, color="black", linewidth=1.2)  # Horizontal axis at y=0
-ax_s.axvline(0, color="black", linewidth=1.2)  # Vertical axis at x=0
+ax_s.axhline(0, color="black")  # Horizontal axis at y=0
+ax_s.axvline(0, color="black")  # Vertical axis at x=0
 plt.xlabel("Actual +/-")
 plt.ylabel("Predicted +/-")
 plt.title("Actual vs Predicted +/-")
