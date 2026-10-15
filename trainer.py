@@ -1,6 +1,6 @@
 import time
 import pandas as pd
-from scraper import Scraper
+from scraper import Scraper, fetchAllGames, computeRestDiff
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import leaguegamefinder, scheduleleaguev2
 
@@ -45,11 +45,12 @@ training/predicting with the model).
 
 @param games_df         Pool of eligible games to sample from (from createGamesPool)
 @param do_not_include    List of GAME_IDs to exclude from sampling (already-used games)
-@return                  One-row training DataFrame (includes GAME_ID and label)
+@param rest_diffs        Series of rest_diff by GAME_ID (from computeRestDiff)
+@return                  One-row training DataFrame (includes GAME_ID, rest_diff and label)
 @author                  Arnav Prasad
 @version                 Sep 22, 2026
 '''
-def createOneTrainingSet(games_df, do_not_include):
+def createOneTrainingSet(games_df, do_not_include, rest_diffs):
     game = games_df.sample(n=1, axis="index")
     while (game["GAME_ID"].iloc[0] in do_not_include):
         game = games_df.sample(n=1, axis="index")
@@ -85,6 +86,7 @@ def createOneTrainingSet(games_df, do_not_include):
     team2_df = team2_df.add_prefix("team2_")
 
     training_df = team1_df.join(team2_df)
+    training_df["rest_diff"] = rest_diffs[str(game["GAME_ID"].iloc[0])]
     training_df.insert(loc=len(training_df.columns),
                         column="label",
                         value=label
@@ -114,12 +116,13 @@ run, then appends each subsequent checkpoint onto it.
 '''
 def createNTrainingSets(N, checkpoint_size=50, filename="training_data.csv"):
     games_df = createGamesPool()
+    rest_diffs = computeRestDiff(fetchAllGames())
     visited = []
     batch = []
     wrote_header_yet = False
  
     for n in range(N):
-        training_df = createOneTrainingSet(games_df, visited)
+        training_df = createOneTrainingSet(games_df, visited, rest_diffs)
         game_id = training_df["GAME_ID"].iloc[0]
         visited.append(game_id)
         batch.append(training_df)
@@ -136,4 +139,43 @@ def createNTrainingSets(N, checkpoint_size=50, filename="training_data.csv"):
             batch = []
 
 
-createNTrainingSets(N=1000, checkpoint_size=50, filename="training_data.csv")
+'''
+Add a rest_diff column to an existing training CSV, matched by GAME_ID,
+without re-scraping any team stats (3 API calls total). Safe to run more
+than once: an existing rest_diff column is replaced, not duplicated. The
+file is only rewritten if every row got a rest_diff.
+
+@param filename    training CSV to update
+@param games_df    output of fetchAllGames; fetched if not given
+@author            Arnav Prasad
+@version           Oct 14, 2026
+'''
+def addRestToTrainingData(filename="training_data.csv", games_df=None):
+    if games_df is None:
+        games_df = fetchAllGames()
+
+    # Read GAME_ID as text, or 0022301145 becomes 22301145 and nothing matches
+    training_df = pd.read_csv(filename, dtype={"GAME_ID": str})
+    training_df = training_df.drop(columns=["rest_diff"], errors="ignore")
+
+    rest_diffs = computeRestDiff(games_df)
+    merged = training_df.merge(rest_diffs, left_on="GAME_ID", right_index=True, how="left")
+
+    missing = merged["rest_diff"].isna().sum()
+    if len(merged) != len(training_df) or missing > 0:
+        raise ValueError(f"{missing} of {len(training_df)} rows got no rest_diff; {filename} not changed")
+
+    # Keep label as the last column
+    merged["label"] = merged.pop("label")
+    merged.to_csv(filename, index=False)
+
+    print(f"Added rest_diff to {len(merged)} rows of {filename}")
+    print(merged["rest_diff"].value_counts().sort_index().to_string())
+
+
+if __name__ == "__main__":
+    # Generate new training data (about 2 hours for 1000 rows, overwrites filename):
+    # createNTrainingSets(N=1000, checkpoint_size=50, filename="training_data.csv")
+
+    # Add rest_diff to the existing training CSV (3 API calls):
+    addRestToTrainingData("training_data.csv")
