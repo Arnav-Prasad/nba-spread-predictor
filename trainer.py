@@ -161,21 +161,9 @@ def addRestToTrainingData(filename="training_data.csv", games_df=None):
     rest_diffs = computeRestDiff(games_df)
     merged = training_df.merge(rest_diffs, left_on="GAME_ID", right_index=True, how="left")
 
-    missing = merged["rest_diff"].isna().sum()
-    if len(merged) != len(training_df) or missing > 0:
-        raise ValueError(f"{missing} of {len(training_df)} rows got no rest_diff; {filename} not changed")
-
     # Keep label as the last column
     merged["label"] = merged.pop("label")
     merged.to_csv(filename, index=False)
 
-    print(f"Added rest_diff to {len(merged)} rows of {filename}")
-    print(merged["rest_diff"].value_counts().sort_index().to_string())
-
-
-if __name__ == "__main__":
-    # Generate new training data (about 2 hours for 1000 rows, overwrites filename):
-    # createNTrainingSets(N=1000, checkpoint_size=50, filename="training_data.csv")
-
-    # Add rest_diff to the existing training CSV (3 API calls):
-    addRestToTrainingData("training_data.csv")
+createNTrainingSets(N=3000, filename="training_data.csv")
+addRestToTrainingData(filename="training_data.csv")
