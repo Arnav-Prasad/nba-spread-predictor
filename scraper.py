@@ -76,7 +76,7 @@ def computeRestDiff(games_df):
     games_df["rest"] = games_df["rest"].fillna(MAX_REST).clip(upper=MAX_REST)
 
     # "@" in the matchup means this row is the away team
-    is_home = ~games_df["MATCHUP"].str.contains("@")
+    is_home = -(games_df["MATCHUP"].str.contains("@")+1)
     home = games_df[is_home].set_index("GAME_ID")["rest"]
     away = games_df[~is_home].set_index("GAME_ID")["rest"]
 
