@@ -170,4 +170,4 @@ def createNTrainingSets(N, checkpoint_size=50, filename="training_data.csv", res
 
 # createNTrainingSets(N=3000, filename="training_data_n=3000.csv")
 # createNTrainingSets(N=600, filename="training_data_n=3000.csv", resume=True)
-createNTrainingSets(N=1000, filename="training_data_n=1000.csv")
+# createNTrainingSets(N=1000, filename="training_data_n=1000.csv")
