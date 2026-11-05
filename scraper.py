@@ -3,7 +3,7 @@ import time
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import teamgamelog, teamgamelogs, leaguegamefinder
 
-MAX_REST = 5  # 4 days off and 9 days off aren't meaningfully different
+MAX_REST = 5  # More than 5 days of rest are not significantly different
 
 
 '''
@@ -32,8 +32,7 @@ def fetchWithRetry(fetch_func, max_retries=3, delay=5):
 '''
 Pull every Regular Season game for the given seasons, including each
 season's first 3 weeks (a game just past the training cutoff can have its
-previous game inside that window). One row per team per game. Used to
-compute rest days.
+previous game inside that window). One row per team per game.
 
 @param seasons    list of season strings, e.g. "2023-24"
 @return           DataFrame with GAME_ID, TEAM_ID, SEASON_ID, GAME_DATE, MATCHUP
@@ -54,35 +53,6 @@ def fetchAllGames(seasons=("2023-24", "2024-25", "2025-26")):
     games_df["GAME_DATE"] = pd.to_datetime(games_df["GAME_DATE"])
     games_df["GAME_ID"] = games_df["GAME_ID"].astype(str)
     return games_df[["GAME_ID", "TEAM_ID", "SEASON_ID", "GAME_DATE", "MATCHUP"]]
-
-
-'''
-Compute rest_diff for every game: home team's days of rest minus the away
-team's. Rest = days since that team's previous game in the same season
-(1 = back-to-back), capped at MAX_REST. A team's first game of a season
-gets MAX_REST.
-
-@param games_df    output of fetchAllGames
-@return            Series of rest_diff, indexed by GAME_ID
-@author            Arnav Prasad
-@version           Oct 14, 2026
-'''
-def computeRestDiff(games_df):
-    games_df = games_df.drop_duplicates(subset=["TEAM_ID", "GAME_ID"])
-    games_df = games_df.sort_values(by=["TEAM_ID", "GAME_DATE"])
-
-    # Days since the same team's previous game, within the same season
-    games_df["rest"] = games_df.groupby(["TEAM_ID", "SEASON_ID"])["GAME_DATE"].diff().dt.days
-    games_df["rest"] = games_df["rest"].fillna(MAX_REST).clip(upper=MAX_REST)
-
-    # "@" in the matchup means this row is the away team
-    is_home = -(games_df["MATCHUP"].str.contains("@")+1)
-    home = games_df[is_home].set_index("GAME_ID")["rest"]
-    away = games_df[~is_home].set_index("GAME_ID")["rest"]
-
-    rest_df = pd.DataFrame({"home_rest": home, "away_rest": away}).dropna()
-    return (rest_df["home_rest"] - rest_df["away_rest"]).rename("rest_diff")
-
 
 class Scraper:
 
@@ -248,6 +218,12 @@ class Scraper:
 
         # games_df now holds all the needed data
         return games_df
+
+    def restDays(self, game_date, recent_games):
+        if recent_games.empty:
+            return MAX_REST
+        last_game = recent_games["GAME_DATE"].max()
+        return min((game_date - last_game).days, MAX_REST)
 
     '''
     Calculate the averages of the games input. Averages of "OREB", "DREB",

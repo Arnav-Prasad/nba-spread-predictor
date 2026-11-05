@@ -3,8 +3,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-def createModel():
-    training_df = pd.read_csv("training_data.csv")
+def createModel(filename):
+    training_df = pd.read_csv(filename)
     game_ids = training_df["GAME_ID"]
     X = training_df.drop(labels=["GAME_ID", "label"], axis="columns")
     y = training_df["label"]
@@ -34,7 +34,7 @@ def createModel():
         "prediction": predictions,
         "actual": y_test
         })
-    predictions_df.to_csv("predictions.csv", header=True, mode="w")
+    predictions_df.to_csv("predictions.csv", header=True, mode="w", index=False)
     features = gary.feature_names_in_
     importances = gary.feature_importances_
     with open("importances.csv", mode="w") as file:
@@ -48,4 +48,4 @@ def createModel():
     # baseline_mae = mean_absolute_error(y_test, baseline_predictions)
     # print(f"Baseline MAE: {baseline_mae}")
 
-createModel()
+createModel(filename="training_data_n=3000.csv")
