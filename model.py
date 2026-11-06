@@ -48,4 +48,4 @@ def createModel(filename):
     # baseline_mae = mean_absolute_error(y_test, baseline_predictions)
     # print(f"Baseline MAE: {baseline_mae}")
 
-createModel(filename="training_data_n=3000.csv")
+# createModel(filename="training_data_n=3000.csv")
