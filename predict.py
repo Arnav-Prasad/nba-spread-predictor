@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 from sklearn.metrics import mean_squared_error
 from scipy.stats import norm
+from analysis import plotWinOdds
 
 # Get user input for home team, away team, and game date
 home_team = input("Home Team: ")
@@ -43,3 +44,5 @@ if margin >= 0:
     print(f"{home_team} by {margin:.1f}, {win_prob:.0%} to win")
 else:
     print(f"{away_team} by {-margin:.1f}, {1 - win_prob:.0%} to win")
+
+plotWinOdds(margin, rmse, home_team, away_team)

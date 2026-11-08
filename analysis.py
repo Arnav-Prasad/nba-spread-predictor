@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
+from matplotlib.widgets import RangeSlider
 
 def plotPredictions():
     # Load data
@@ -101,6 +103,49 @@ def calibrationPlot():
     ax.set_ylim(0, 1)
     ax.set_title("Calibration Plot")
     fig.savefig("calibration.png", bbox_inches="tight")
+
+def plotWinOdds(margin, sigma, home_team, away_team):
+    x = np.linspace(margin - 4 * sigma, margin + 4 * sigma, 500)
+    y = norm.pdf(x, margin ,sigma)
+
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(bottom=0.25)
+    ax.plot(x, y)
+    ax.set_ylim(bottom=0.0)
+    ax.axvline(0, color="black", lw=1)
+    ax.set_xlabel(f"Margin ({home_team} - {away_team})")
+    slider_ax = fig.add_axes([0.15, 0.08, 0.7, 0.04])
+    slider = RangeSlider(slider_ax, "Range", x.min(), x.max(), valinit=(0, x.max()))
+    shade = None
+    def update(val):
+        nonlocal shade
+        low, high = slider.val
+        if shade is not None:
+            shade.remove()
+        shade = ax.fill_between(x, 
+                                y, 
+                                where=(x >= low) & (x <= high), 
+                                alpha = 0.4, 
+                                color="C0")
+        prob = norm.cdf(high, margin, sigma) - norm.cdf(low, margin, sigma)
+        if low >= 0:
+            if high >= x.max():
+                text = f"{home_team} win by {low:.0f}+"
+            else:
+                text = f"{home_team} win by {low:.0f} to {high:.0f}"
+        elif high <= 0:
+            if low <= x.min():
+                text = f"{away_team} win by {-high:.0f}+"
+            else:
+                text = f"{away_team} win by {-high:.0f} to {-low:.0f}"
+        else:
+            text = f"{away_team} by ≤{-low:.0f} or {home_team} by ≤{high:.0f}"
+
+        ax.set_title(f"{text}: {prob:.0%}\nP({low:.1f} ≤ margin ≤ {high:.1f}) = {prob:.0%}")
+        fig.canvas.draw_idle()
+    slider.on_changed(update)
+    update(None)
+    plt.show()
 
 # plotPredictions()
 # plotError()
