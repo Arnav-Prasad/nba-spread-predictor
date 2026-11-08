@@ -28,32 +28,6 @@ def fetchWithRetry(fetch_func, max_retries=3, delay=5):
             time.sleep(delay)
     raise Exception("Max retries exceeded")
 
-
-'''
-Pull every Regular Season game for the given seasons, including each
-season's first 3 weeks (a game just past the training cutoff can have its
-previous game inside that window). One row per team per game.
-
-@param seasons    list of season strings, e.g. "2023-24"
-@return           DataFrame with GAME_ID, TEAM_ID, SEASON_ID, GAME_DATE, MATCHUP
-@author           Arnav Prasad
-@version          Oct 14, 2026
-'''
-def fetchAllGames(seasons=("2023-24", "2024-25", "2025-26")):
-    games = []
-    for season in seasons:
-        temp = fetchWithRetry(lambda season=season: leaguegamefinder.LeagueGameFinder(
-            league_id_nullable="00",
-            season_type_nullable="Regular Season",
-            season_nullable=season
-        ))
-        games.append(temp.get_data_frames()[0])
-        time.sleep(1)
-    games_df = pd.concat(games, ignore_index=True)
-    games_df["GAME_DATE"] = pd.to_datetime(games_df["GAME_DATE"])
-    games_df["GAME_ID"] = games_df["GAME_ID"].astype(str)
-    return games_df[["GAME_ID", "TEAM_ID", "SEASON_ID", "GAME_DATE", "MATCHUP"]]
-
 class Scraper:
 
     # Intialize Scraper object
@@ -157,11 +131,13 @@ class Scraper:
 
         # Get which season start is in
         start_date = pd.to_datetime(start, format="%Y-%m-%d")
-        if (start_date > pd.to_datetime("2025-09-01", format="%Y-%m-%d")):
+        if (start_date >= pd.to_datetime("2026-09-01", format="%Y-%m-%d")):
+            season = "2026-27"
+        elif (start_date >= pd.to_datetime("2025-09-01", format="%Y-%m-%d")):
             season = "2025-26"
-        elif (start_date > pd.to_datetime("2024-09-01", format="%Y-%m-%d")):
+        elif (start_date >= pd.to_datetime("2024-09-01", format="%Y-%m-%d")):
             season = "2024-25"
-        elif (start_date > pd.to_datetime("2023-09-01", format="%Y-%m-%d")):
+        elif (start_date >= pd.to_datetime("2023-09-01", format="%Y-%m-%d")):
             season = "2023-24"
         else:
             raise ValueError(f"No season mapping for {start_date}")
@@ -219,6 +195,16 @@ class Scraper:
         # games_df now holds all the needed data
         return games_df
 
+    '''
+    Calculate the number of rest days a team has from their set of recent games and
+    a given game date.
+
+    @param game_date    datetime object representing the calendar date of the game
+    @param recent_games dataframe holding every game from given range for a particular team
+    @return             number of rest days, either MAX_REST=5 or game_date - last_game
+    @author             Arnav Prasad
+    @version            Nov 5, 2026
+    '''
     def restDays(self, game_date, recent_games):
         if recent_games.empty:
             return MAX_REST

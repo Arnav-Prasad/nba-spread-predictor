@@ -1,8 +1,8 @@
 import time
 import pandas as pd
-from scraper import Scraper, fetchAllGames
+from scraper import Scraper, fetchWithRetry
 from nba_api.stats.static import teams
-from nba_api.stats.endpoints import leaguegamefinder, scheduleleaguev2
+from nba_api.stats.endpoints import leaguegamefinder
 
 '''
 Build the pool of eligible historical games to sample training examples
@@ -20,22 +20,24 @@ def createGamesPool():
 
     # Pull every game from these seasons
     for season in seasons:
-        another_temp = scheduleleaguev2.ScheduleLeagueV2(season=season)
-        time.sleep(1)
-        season_start = pd.to_datetime(another_temp.get_data_frames()[1]["startDate"].iloc[0])
-        temp = leaguegamefinder.LeagueGameFinder(
+        temp = fetchWithRetry(lambda season=season: leaguegamefinder.LeagueGameFinder(
             league_id_nullable="00",
             season_type_nullable="Regular Season",
             season_nullable=season,
-            date_from_nullable=(season_start+pd.Timedelta(weeks=3)).strftime("%m/%d/%Y")
-        )
-        games.append(temp.get_data_frames()[0])
+        ))
+        season_games = temp.get_data_frames()[0]
+        season_games["GAME_DATE"] = pd.to_datetime(season_games["GAME_DATE"])
+
+        # Season start is the earliest game of the season
+        season_start = season_games["GAME_DATE"].min()
+        season_games["SEASON_START"] = season_start
+
+        # Keep only games at least 3 weeks into the season for better averages
+        season_games = season_games[season_games["GAME_DATE"] >= season_start + pd.Timedelta(weeks=3)]
+        games.append(season_games)
         time.sleep(1)
+
     games_df = pd.concat(games, ignore_index=True)
-
-    # Convert GAME_DATE from string to datetime
-    games_df["GAME_DATE"] = pd.to_datetime(games_df["GAME_DATE"])
-
     return games_df
 
 '''
@@ -77,7 +79,7 @@ def createOneTrainingSet(games_df, do_not_include):
     # Set up dates of interest as both datetime objects and strings
     game_date = game["GAME_DATE"].iloc[0]
     end_date = game["GAME_DATE"] - pd.Timedelta(days=1)
-    start_date = end_date - pd.Timedelta(weeks=3)
+    start_date = game["SEASON_START"]
     start_date_str = start_date.dt.strftime("%Y-%m-%d")
     end_date_str = end_date.dt.strftime("%Y-%m-%d")
 

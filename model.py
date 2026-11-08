@@ -1,7 +1,9 @@
 import xgboost as xgb
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from scipy.stats import norm
 
 def createModel(filename):
     training_df = pd.read_csv(filename)
@@ -9,7 +11,7 @@ def createModel(filename):
     X = training_df.drop(labels=["GAME_ID", "label"], axis="columns")
     y = training_df["label"]
 
-    gary = xgb.XGBRegressor(n_estimators=300,
+    regressionModel = xgb.XGBRegressor(n_estimators=300,
                              max_depth=1,
                              learning_rate=0.05,
                              random_state=1
@@ -23,24 +25,28 @@ def createModel(filename):
         random_state=1
     )
 
-    gary.fit(X=x_train, y=y_train)
+    regressionModel.fit(X=x_train, y=y_train)
 
-    predictions = gary.predict(X=x_test)
+    predictions = regressionModel.predict(X=x_test)
     # mae = mean_absolute_error(y_test, predictions)
-    # rmse = np.sqrt(mean_squared_error(y_test, predictions))
+    rmse = np.sqrt(mean_squared_error(y_test, predictions))
+    win_prob = norm.cdf(predictions / rmse)
 
     predictions_df = pd.DataFrame({
         "GAME_ID": game_ids_test.values,
         "prediction": predictions,
-        "actual": y_test
+        "actual": y_test,
+        "win_prob": win_prob
         })
     predictions_df.to_csv("predictions.csv", header=True, mode="w", index=False)
-    features = gary.feature_names_in_
-    importances = gary.feature_importances_
+    features = regressionModel.feature_names_in_
+    importances = regressionModel.feature_importances_
     with open("importances.csv", mode="w") as file:
         file.write("feature,importance\n")
         for feature, importance in zip(features, importances):
             file.write(f"{feature},{importance}\n")
+
+    regressionModel.save_model(fname="model.json")
     # print(f"MAE is {mae} and RMSE is {rmse}")
 
     # naive_prediction = y_train.mean()
@@ -48,4 +54,4 @@ def createModel(filename):
     # baseline_mae = mean_absolute_error(y_test, baseline_predictions)
     # print(f"Baseline MAE: {baseline_mae}")
 
-# createModel(filename="training_data_n=3000.csv")
+createModel(filename="training_data_n=3000.csv")
